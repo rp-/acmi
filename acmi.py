@@ -2,17 +2,39 @@ import os
 import zipfile
 import codecs
 import datetime
+import copy
+import sortedcontainers
 
 
 class Object:
     def __init__(self, id):
         self.id = id
-        self.type = None
-        self.parent = None
-        self.name = None
-        self.pilot = None
-        self.group = None
-        self.country = None
+        self.removed_at = None
+
+        self.data = {}
+
+    def set_value(self, field, timeframe, val):
+        if field not in self.data:
+            self.data[field] = sortedcontainers.SortedDict()
+        self.data[field][timeframe] = val
+
+    def value(self, field: str, time=None):
+        if field not in self.data:
+            return None
+
+        if time is not None:
+            return self.data[field].bisect_left(time)
+        return self.data[field][self.data[field].keys()[-1]]
+
+    def __str__(self):
+        return "{id}: '{name}' {long},{lat},{alt}".format(
+            id=self.id, name=self.value("Name"), long=self.value("Longitude"), lat=self.value("Latitude"), alt=self.value("Altitude"))
+
+
+class Frame:
+    def __init__(self, time):
+        self.time = time
+        self.objects = {}
 
 
 class Acmi:
@@ -82,15 +104,40 @@ class Acmi:
             else:
                 raise RuntimeError("Unknown global property: " + prop)
 
-    def _parse_object(self, obj: Object, fields):
+    def _update_object(self, obj_id: int, timeframe: float, fields):
+        if obj_id not in self.objects:
+            self.objects[obj_id] = Object(obj_id)
+
+        obj = self.objects[obj_id]
         for field in fields[1:]:
             (prop, val) = field.split('=', 1)
-            if prop == "Name":
-                obj.name = val
+            if prop == "T":
+                pos = val.split('|')
+                if pos:
+                    if pos[0]:
+                        obj.set_value("Longitude", timeframe, float(pos[0]))
+                    if pos[1]:
+                        obj.set_value("Latitude", timeframe, float(pos[1]))
+                    if pos[2]:
+                        obj.set_value("Altitude", timeframe, float(pos[2]))
+            elif prop == "Name":
+                obj.set_value(prop, timeframe, val)
+            elif prop == "Parent":
+                obj.parent = int(val, 16)
             elif prop == "Type":
                 obj.type = val
+            elif prop == "Pilot":
+                obj.pilot = val
+            elif prop == "Group":
+                obj.group = val
             elif prop == "Country":
                 obj.country = val
+            elif prop == "Coalition":
+                obj.coalition = val
+            elif prop == "Color":
+                obj.color = val
+            elif prop == "Registration":
+                obj.registration = val
 
     def _parse(self, fp):
         with fp as f:
@@ -106,7 +153,7 @@ class Acmi:
             else:
                 raise RuntimeError("ACMI file missing FileVersion.")
 
-            cur_reftime = None
+            cur_reftime = 0.0
             for rawline in codecs.iterdecode(f, Acmi._codec):
                 line = rawline.strip()
                 if line.startswith('//'):
@@ -114,24 +161,21 @@ class Acmi:
 
                 if line.startswith('#'):
                     cur_reftime = float(line[1:])
+                    print(cur_reftime)
                     continue
 
                 if line.startswith('-'):
-                    pass  # remove object
+                    obj_id = int(line[1:], 16)
+                    self.objects[obj_id].removed_at = cur_reftime
                 else:
                     fields = self.split_fields(line)
                     obj_id = int(fields[0], 16)
 
+                    #print(obj_id, fields)
                     if obj_id == 0:
                         self._parse_global_property(fields)
                     else:
-                        if obj_id not in self.objects:
-                            obj = Object(obj_id)
-                            self.objects[obj_id] = obj
-                            self._parse_object(obj, fields)
-                    print(obj_id, fields)
-
-            print("cur_reftime", cur_reftime)
+                        self._update_object(obj_id, cur_reftime, fields)
 
     def __str__(self):
         return str(
@@ -160,6 +204,7 @@ if __name__ == "__main__":
 
     for oid in acmi.objects:
         o = acmi.objects[oid]
-        print(o.id, o.name)
+        if o.removed_at is None:
+            print(o)
 
     print(acmi)
