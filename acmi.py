@@ -1,8 +1,8 @@
+import sys
 import os
 import zipfile
 import codecs
 import datetime
-import copy
 import sortedcontainers
 
 
@@ -28,7 +28,11 @@ class Object:
 
     def __str__(self):
         return "{id}: '{name}' {long},{lat},{alt}".format(
-            id=self.id, name=self.value("Name"), long=self.value("Longitude"), lat=self.value("Latitude"), alt=self.value("Altitude"))
+            id=self.id,
+            name=self.value("Name"),
+            long=self.value("Longitude"),
+            lat=self.value("Latitude"),
+            alt=self.value("Altitude"))
 
 
 class Frame:
@@ -59,13 +63,14 @@ class Acmi:
         self.reference_latitude = None
 
         self.objects = {}
+        self.timeframes = []
 
     def load(self, filepath):
 
         def acmifile(filepath_):
             if zipfile.is_zipfile(filepath_):
                 with zipfile.ZipFile(filepath_) as acmizip:
-                    return acmizip.open(os.path.basename(filepath_).replace("zip", "txt"), mode="rU")
+                    return acmizip.open(os.path.basename(filepath_).replace("zip", "txt"), mode="r")
             return open(filepath_)
 
         self._parse(acmifile(filepath))
@@ -122,22 +127,28 @@ class Acmi:
                         obj.set_value("Altitude", timeframe, float(pos[2]))
             elif prop == "Name":
                 obj.set_value(prop, timeframe, val)
-            elif prop == "Parent":
-                obj.parent = int(val, 16)
+            elif prop == "Parent" or prop == "FocusTarget" or prop == "LockedTarget":
+                obj.set_value(prop, timeframe, int(val, 16))
             elif prop == "Type":
-                obj.type = val
+                obj.set_value(prop, timeframe, val)
             elif prop == "Pilot":
-                obj.pilot = val
+                obj.set_value(prop, timeframe, val)
             elif prop == "Group":
-                obj.group = val
+                obj.set_value(prop, timeframe, val)
             elif prop == "Country":
-                obj.country = val
+                obj.set_value(prop, timeframe, val)
             elif prop == "Coalition":
-                obj.coalition = val
+                obj.set_value(prop, timeframe, val)
             elif prop == "Color":
-                obj.color = val
+                obj.set_value(prop, timeframe, val)
             elif prop == "Registration":
-                obj.registration = val
+                obj.set_value(prop, timeframe, val)
+            elif prop == "Squawk":
+                obj.set_value(prop, timeframe, val)
+            elif prop == "Debug":
+                obj.set_value(prop, timeframe, val)
+            elif prop == "Label":
+                obj.set_value(prop, timeframe, val)
 
     def _parse(self, fp):
         with fp as f:
@@ -150,6 +161,8 @@ class Acmi:
             rawline = f.readline().decode(Acmi._codec)
             if rawline.startswith('FileVersion='):
                 self.file_version = float(rawline[len('FileVersion='):].strip())
+                if self.file_version < 2.1:
+                    raise RuntimeError("Unsupport file version: {v}".format(v=self.file_version))
             else:
                 raise RuntimeError("ACMI file missing FileVersion.")
 
@@ -161,7 +174,7 @@ class Acmi:
 
                 if line.startswith('#'):
                     cur_reftime = float(line[1:])
-                    print(cur_reftime)
+                    self.timeframes.append(cur_reftime)
                     continue
 
                 if line.startswith('-'):
@@ -176,6 +189,9 @@ class Acmi:
                         self._parse_global_property(fields)
                     else:
                         self._update_object(obj_id, cur_reftime, fields)
+
+    def object_ids(self):
+        return self.objects.keys()
 
     def __str__(self):
         return str(
@@ -200,8 +216,11 @@ class Acmi:
 
 if __name__ == "__main__":
     acmi = Acmi()
-    acmi.load("C:\\Users\\peint\\Documents\\Tacview\\Tacview-20170120-175227-DCS-dcscs.zip.acmi")
+    #acmi.load("C:\\Users\\peint\\Documents\\Tacview\\Tacview-20170120-175227-DCS-dcscs.zip.acmi")
+    acmi.load(sys.argv[1])
 
+    print(acmi.object_ids())
+    print(acmi.timeframes)
     for oid in acmi.objects:
         o = acmi.objects[oid]
         if o.removed_at is None:
