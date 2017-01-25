@@ -27,7 +27,7 @@ class Object:
         return self.data[field][self.data[field].keys()[-1]]
 
     def __str__(self):
-        return "{id}: '{name}' {long},{lat},{alt}".format(
+        return "{id}: '{name}' {long}, {lat}, {alt}".format(
             id=self.id,
             name=self.value("Name"),
             long=self.value("Longitude"),
@@ -129,26 +129,22 @@ class Acmi:
                 obj.set_value(prop, timeframe, val)
             elif prop == "Parent" or prop == "FocusTarget" or prop == "LockedTarget":
                 obj.set_value(prop, timeframe, int(val, 16))
-            elif prop == "Type":
+            elif prop in ["Type", "Pilot", "Group", "Country", "Coalition",
+                          "Color", "Registration", "Squawk", "Debug", "Label"]:
                 obj.set_value(prop, timeframe, val)
-            elif prop == "Pilot":
-                obj.set_value(prop, timeframe, val)
-            elif prop == "Group":
-                obj.set_value(prop, timeframe, val)
-            elif prop == "Country":
-                obj.set_value(prop, timeframe, val)
-            elif prop == "Coalition":
-                obj.set_value(prop, timeframe, val)
-            elif prop == "Color":
-                obj.set_value(prop, timeframe, val)
-            elif prop == "Registration":
-                obj.set_value(prop, timeframe, val)
-            elif prop == "Squawk":
-                obj.set_value(prop, timeframe, val)
-            elif prop == "Debug":
-                obj.set_value(prop, timeframe, val)
-            elif prop == "Label":
-                obj.set_value(prop, timeframe, val)
+            # numeric except coordinates start here
+            # floats
+            elif prop == ["Importance", "Length", "Width", "Height",
+                          "IAS", "CAS", "TAS", "Mach", "AOA", "HDG"
+                          "HDM", "Throttle", "RadarAzumith", "RadarElevation",
+                          "RadarRange", "LockedTargetAzimuth",
+                          "LockedTargetElevation", "LockedTargetRange"]:
+                obj.set_value(prop, timeframe, float(val))
+            # int
+            elif prop == ["Slot", "Afterburner", "Airbrakes", "Tailhook"
+                          "Parachute", "Dragchute", "Radarmode",
+                          "LockedTargetMode"]:
+                obj.set_value(prop, timeframe, int(val))
 
     def _parse(self, fp):
         with fp as f:
