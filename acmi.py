@@ -29,6 +29,12 @@ class Object:
     def group(self, time=None):
         return self.value("Group", time)
 
+    def longitude(self, time=None):
+        return self.value("Longitude", time)
+
+    def latitude(self, time=None):
+        return self.value("Latitude", time)
+
     def __str__(self):
         return "{id}: '{name}' {long}, {lat}, {alt}".format(
             id=self.id,
@@ -217,7 +223,6 @@ class Acmi:
 
 if __name__ == "__main__":
     acmi = Acmi()
-    #acmi.load("C:\\Users\\peint\\Documents\\Tacview\\Tacview-20170120-175227-DCS-dcscs.zip.acmi")
     acmi.load(sys.argv[1])
 
     print(acmi.object_ids())
