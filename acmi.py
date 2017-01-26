@@ -26,6 +26,9 @@ class Object:
             return self.data[field].bisect_left(time)
         return self.data[field][self.data[field].keys()[-1]]
 
+    def group(self, time=None):
+        return self.value("Group", time)
+
     def __str__(self):
         return "{id}: '{name}' {long}, {lat}, {alt}".format(
             id=self.id,
@@ -136,15 +139,17 @@ class Acmi:
             # floats
             elif prop == ["Importance", "Length", "Width", "Height",
                           "IAS", "CAS", "TAS", "Mach", "AOA", "HDG"
-                          "HDM", "Throttle", "RadarAzumith", "RadarElevation",
+                          "HDM", "Throttle", "RadarAzimuth", "RadarElevation",
                           "RadarRange", "LockedTargetAzimuth",
                           "LockedTargetElevation", "LockedTargetRange"]:
                 obj.set_value(prop, timeframe, float(val))
             # int
-            elif prop == ["Slot", "Afterburner", "Airbrakes", "Tailhook"
-                          "Parachute", "Dragchute", "Radarmode",
+            elif prop == ["Slot", "Afterburner", "AirBrakes", "Tailhook"
+                          "Parachute", "DragChute", "RadarMode",
                           "LockedTargetMode"]:
                 obj.set_value(prop, timeframe, int(val))
+            else:
+                print("Unknown property:", prop)
 
     def _parse(self, fp):
         with fp as f:
@@ -158,7 +163,7 @@ class Acmi:
             if rawline.startswith('FileVersion='):
                 self.file_version = float(rawline[len('FileVersion='):].strip())
                 if self.file_version < 2.1:
-                    raise RuntimeError("Unsupport file version: {v}".format(v=self.file_version))
+                    raise RuntimeError("Unsupported file version: {v}".format(v=self.file_version))
             else:
                 raise RuntimeError("ACMI file missing FileVersion.")
 
