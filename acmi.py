@@ -129,9 +129,9 @@ class Acmi:
                 pos = val.split('|')
                 if pos:
                     if pos[0]:
-                        obj.set_value("Longitude", timeframe, float(pos[0]))
+                        obj.set_value("Longitude", timeframe, self.reference_longitude + float(pos[0]))
                     if pos[1]:
-                        obj.set_value("Latitude", timeframe, float(pos[1]))
+                        obj.set_value("Latitude", timeframe, self.reference_latitude + float(pos[1]))
                     if pos[2]:
                         obj.set_value("Altitude", timeframe, float(pos[2]))
             elif prop == "Name":
