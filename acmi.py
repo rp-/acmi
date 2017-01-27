@@ -200,6 +200,12 @@ class Acmi:
     def object_ids(self):
         return self.objects.keys()
 
+    def alive_objects(self):
+        return [self.objects[objkey] for objkey in self.objects if self.objects[objkey].removed_at is None]
+
+    def removed_objects(self):
+        return [self.objects[objkey] for objkey in self.objects if self.objects[objkey].removed_at is not None]
+
     def __str__(self):
         return str(
             {
@@ -227,9 +233,7 @@ if __name__ == "__main__":
 
     print(acmi.object_ids())
     print(acmi.timeframes)
-    for oid in acmi.objects:
-        o = acmi.objects[oid]
-        if o.removed_at is None:
-            print(o)
+    for o in acmi.alive_objects():
+       print(o)
 
     print(acmi)
