@@ -29,11 +29,20 @@ class Object:
     def group(self, time=None):
         return self.value("Group", time)
 
+    def x(self, time=None):
+        return self.value("x", time)
+
+    def y(self, time=None):
+        return self.value("y", time)
+
     def longitude(self, time=None):
         return self.value("Longitude", time)
 
     def latitude(self, time=None):
         return self.value("Latitude", time)
+
+    def type(self, time=None):
+        return self.value("Type", time)
 
     def __str__(self):
         return "{id}: '{name}' {long}, {lat}, {alt}".format(
@@ -134,11 +143,18 @@ class Acmi:
                         obj.set_value("Latitude", timeframe, self.reference_latitude + float(pos[1]))
                     if pos[2]:
                         obj.set_value("Altitude", timeframe, float(pos[2]))
+
+                    if len(pos) > 6 and pos[6]:  # x internal coordinate
+                        obj.set_value("x", timeframe, float(pos[6]))
+                    if len(pos) > 7 and pos[7]:  # x internal coordinate
+                        obj.set_value("y", timeframe, float(pos[7]))
             elif prop == "Name":
                 obj.set_value(prop, timeframe, val)
             elif prop == "Parent" or prop == "FocusTarget" or prop == "LockedTarget":
                 obj.set_value(prop, timeframe, int(val, 16))
-            elif prop in ["Type", "Pilot", "Group", "Country", "Coalition",
+            elif prop == "Type":
+                obj.set_value(prop, timeframe, val.split("+"))
+            elif prop in ["Pilot", "Group", "Country", "Coalition",
                           "Color", "Registration", "Squawk", "Debug", "Label"]:
                 obj.set_value(prop, timeframe, val)
             # numeric except coordinates start here
@@ -231,9 +247,14 @@ if __name__ == "__main__":
     acmi = Acmi()
     acmi.load(sys.argv[1])
 
+    #import pyproj
+    #dcs_proj = pyproj.Proj("+proj=tmerc +lat_0=0 +lon_0=33 +k_0=0.9996 +x_0=-99517 +y_0=-4998115")
+
     print(acmi.object_ids())
     print(acmi.timeframes)
     for o in acmi.alive_objects():
-       print(o)
+        if "Air" in o.type():
+            print(o)
+            print(o.x(), o.y())
 
     print(acmi)
