@@ -59,8 +59,29 @@ class Frame:
         self.objects = {}
 
 
-class Acmi:
+class AcmiFileReader:
+    """Stream reading class that correctly line escaped acmi files."""
+
     _codec = 'utf-8-sig'
+
+    def __init__(self, fh):
+        self.fh = fh
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        line = self.fh.readline().decode(AcmiFileReader._codec)
+        if len(line) == 0:
+            raise StopIteration
+
+        while line.strip().endswith('\\'):
+            line = line.strip()[:-1] + '\n' + self.fh.readline().decode(AcmiFileReader._codec)
+
+        return line
+
+
+class Acmi:
 
     def __init__(self):
         self.file_version = None
@@ -95,7 +116,17 @@ class Acmi:
 
     @staticmethod
     def split_fields(line):
-        return line.split(',')
+        fields = []
+        i = 1
+        lastfield = 0
+        while i < len(line):
+            if line[i-1] != '\\' and line[i] == ',':
+                fields.append(line[lastfield:i])
+                lastfield = i + 1
+            i += 1
+
+        fields.append(line[lastfield:i])
+        return fields
 
     def _parse_global_property(self, fields):
         for field in fields[1:]:  # skip objid (0)
@@ -159,14 +190,15 @@ class Acmi:
                 obj.set_value(prop, timeframe, val)
             # numeric except coordinates start here
             # floats
-            elif prop == ["Importance", "Length", "Width", "Height",
-                          "IAS", "CAS", "TAS", "Mach", "AOA", "HDG"
+            elif prop in ["Importance", "Length", "Width", "Height",
+                          "IAS", "CAS", "TAS", "Mach", "AOA", "HDG",
                           "HDM", "Throttle", "RadarAzimuth", "RadarElevation",
                           "RadarRange", "LockedTargetAzimuth",
-                          "LockedTargetElevation", "LockedTargetRange"]:
+                          "LockedTargetElevation", "LockedTargetRange", "Flaps", "LandingGear",
+                          "AirBrakes"]:
                 obj.set_value(prop, timeframe, float(val))
             # int
-            elif prop == ["Slot", "Afterburner", "AirBrakes", "Tailhook"
+            elif prop in ["Slot", "Afterburner", "Tailhook",
                           "Parachute", "DragChute", "RadarMode",
                           "LockedTargetMode"]:
                 obj.set_value(prop, timeframe, int(val))
@@ -175,13 +207,14 @@ class Acmi:
 
     def _parse(self, fp):
         with fp as f:
-            rawline = f.readline().decode(Acmi._codec)
+            ar = AcmiFileReader(f)
+            rawline = next(ar)
             if rawline.startswith('FileType='):
                 self.file_type = rawline[len('FileType='):].strip()
             else:
                 raise RuntimeError("ACMI file doesn't start with FileType.")
 
-            rawline = f.readline().decode(Acmi._codec)
+            rawline = next(ar)
             if rawline.startswith('FileVersion='):
                 self.file_version = float(rawline[len('FileVersion='):].strip())
                 if self.file_version < 2.1:
@@ -190,9 +223,11 @@ class Acmi:
                 raise RuntimeError("ACMI file missing FileVersion.")
 
             cur_reftime = 0.0
-            for rawline in codecs.iterdecode(f, Acmi._codec):
-                line = rawline.strip()
-                if line.startswith('//'):
+            linenr = 2
+            for rawline in ar:
+                linenr += 1
+                line = rawline.strip()  # type: str
+                if not line or line.startswith('//'):
                     continue  # ignore comments
 
                 if line.startswith('#'):
